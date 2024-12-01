@@ -1,8 +1,7 @@
-# ver 4 : 이미지 로드 함수 추가, 카드 이미지 로드 및 표시 함수 추가, 특수 카드 이미지 로드 및 표시 함수 추가, 이미지 크기 조정, 이미지 로드 확인용 출력 추가
+# version 3: 게임 라운드 종료 시 승패 여부 확인 및 애니메이션 효과 추가
 import pygame
 import random
 import sys
-import os
 
 # Initialize Pygame
 pygame.init()
@@ -48,58 +47,19 @@ cards_per_row = 7  # 한 줄에 표시할 카드 수
 life_chip_animations = []
 consensus_animation = None
 
-# 이미지 경로 설정
-IMAGE_PATH = os.path.join('robo77-images')
-
-card_names = [
-    '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', 
-    '11', '22', '33', '44', '55', '66', '76', 
-    'reverse', '0', 'x2', '-10'
-]
-
-# 이미지 로드 함수 추가
-def load_images():
-    images = {}
-    try:
-        print(f"현재 이미지 경로: {IMAGE_PATH}")  # 경로 확인용 출력
-        
-        # 카드 이미지 로드
-        for card_name in card_names:
-            card_path = os.path.join(IMAGE_PATH, f'card_{card_name}.png')
-            if os.path.exists(card_path):
-                print(f"카드 이미지 로드 성공: {card_path}")  # 성공한 이미지 로드 확인
-                images[card_name] = pygame.image.load(card_path)
-            else:
-                print(f"카드 이미지 없음: {card_path}")  # 없는 이미지 파일 확인
-        
-        # 특수 카드 이미지 로드
-        special_cards = {
-            'reverse': 'card_reverse.png',
-            '0': 'card_0.png',
-            '*2': 'card_x2.png',
-            '-10': 'card_-10.png',
-            'chip': 'chip.png',
-            'layout': 'layout.png'
-        }
-        
-        for key, filename in special_cards.items():
-            file_path = os.path.join(IMAGE_PATH, filename)
-            if os.path.exists(file_path):
-                print(f"특수 카드 이미지 로드 성공: {file_path}")
-                images[key] = pygame.image.load(file_path)
-            else:
-                print(f"특수 카드 이미지 없음: {file_path}")
-        
-        # 이미지 크기 조정
-        for key in images:
-            if key != 'layout':  # 배경 제외
-                images[key] = pygame.transform.scale(images[key], (CARD_WIDTH, CARD_HEIGHT))
-                
-        print(f"로드된 총 이미지 수: {len(images)}")  # 총 로드된 이미지 수 확인
-        
-    except Exception as e:
-        print(f"이미지 로드 중 오류 발생: {e}")
-    return images
+# Create deck
+def create_deck():
+    deck = []
+    for i in range(2, 10):
+        deck.extend([i] * 3)
+    deck.extend([10] * 8)
+    deck.extend(["reverse"] * 5)
+    deck.extend([0] * 4)
+    deck.extend(["*2"] * 4)
+    deck.extend([-10] * 4)
+    deck.extend([11, 22, 33, 44, 55, 66, 76])
+    random.shuffle(deck)
+    return deck
 
 # Draw text
 def draw_text(text, font, color, x, y):
@@ -108,54 +68,33 @@ def draw_text(text, font, color, x, y):
 
 # Draw card
 def draw_card(card, x, y, clickable=True):
-    if not hasattr(draw_card, 'images'):
-        draw_card.images = load_images()
-    
-    card_str = str(card)
-    if card_str in draw_card.images:
-        if clickable:
-            screen.blit(draw_card.images[card_str], (x, y))
-        else:
-            # 비활성화된 카드는 약간 어둡게 표시
-            dark_card = draw_card.images[card_str].copy()
-            dark_card.fill((100, 100, 100), special_flags=pygame.BLEND_RGBA_MULT)
-            screen.blit(dark_card, (x, y))
-    else:
-        # 이미지가 없는 경우 기존 방식으로 표시
-        pygame.draw.rect(screen, BLUE if clickable else RED, (x, y, CARD_WIDTH, CARD_HEIGHT), border_radius=10)
-        text_color = WHITE if clickable else BLACK
-        draw_text(str(card), font, text_color, x + CARD_WIDTH // 3, y + CARD_HEIGHT // 3)
+    pygame.draw.rect(screen, BLUE if clickable else RED, (x, y, CARD_WIDTH, CARD_HEIGHT), border_radius=10)
+    text_color = WHITE if clickable else BLACK
+    draw_text(str(card), font, text_color, x + CARD_WIDTH // 3, y + CARD_HEIGHT // 3)
 
 # Draw life chips with animation support
 def draw_life_chips(x, y, life_chips):
-    if not hasattr(draw_life_chips, 'chip_image'):
-        draw_life_chips.chip_image = load_images().get('chip')
-    
-    # 애니메이션 처리
+    global life_chip_animations
+   
+    # Process and draw life chip animations
     for anim in life_chip_animations[:]:
         anim['scale'] -= 0.1
         anim['alpha'] -= 25
-        
-        if draw_life_chips.chip_image:
-            chip_surface = pygame.transform.scale(
-                draw_life_chips.chip_image,
-                (int(20 * anim['scale']), int(20 * anim['scale']))
-            )
-            chip_surface.set_alpha(anim['alpha'])
-            screen.blit(chip_surface, (anim['x'], anim['y']))
-        
+       
+        # Create a surface with alpha transparency
+        chip_surface = pygame.Surface((20, 20), pygame.SRCALPHA)
+        pygame.draw.circle(chip_surface, (*RED, anim['alpha']), (10, 10), int(10 * anim['scale']))
+       
+        # Draw the animated chip
+        screen.blit(chip_surface, (anim['x'], anim['y']))
+       
+        # Remove animation when fully transparent
         if anim['alpha'] <= 0:
             life_chip_animations.remove(anim)
-    
-    # 현재 라이프 칩 표시
-    if draw_life_chips.chip_image:
-        for i in range(life_chips):
-            screen.blit(pygame.transform.scale(draw_life_chips.chip_image, (20, 20)), 
-                       (x + i * 30, y - 10))
-    else:
-        # 이미지가 없는 경우 기존 방식으로 표시
-        for i in range(life_chips):
-            pygame.draw.circle(screen, RED, (x + i * 30, y), 10)
+   
+    # Draw current life chips
+    for i in range(life_chips):
+        pygame.draw.circle(screen, RED, (x + i * 30, y), 10)
 
 # Draw warning message
 def draw_warning_message(message, duration=2000):
@@ -255,66 +194,48 @@ def initialize_game():
     life_chip_animations = []
     consensus_animation = None
 
-# Create deck 함수 수정
-def create_deck():
-    deck = []
-    # 일반 숫자 카드 (2-9)
-    for i in range(2, 10):
-        deck.extend([str(i)] * 3)  # 각 숫자당 3장씩
-    
-    # 10 카드
-    deck.extend(['10'] * 8)
-    
-    # 특수 카드
-    deck.extend(['reverse'] * 5)  # reverse 카드 5장
-    deck.extend(['0'] * 4)        # 0 카드 4장
-    deck.extend(['*2'] * 4)       # *2 카드 4장
-    deck.extend(['-10'] * 4)      # -10 카드 4장
-    
-    # 11의 배수 카드
-    deck.extend(['11', '22', '33', '44', '55', '66', '76'])
-    
-    random.shuffle(deck)
-    return deck
-
-# apply_card 함수도 수정이 필요합니다
+# Apply card effect
 def apply_card(card, player):
     global current_total, deck, game_message, user_drawn_card, computer_drawn_card
 
-    # 카드 효과 적용
-    if card.isdigit() or (card.startswith('-') and card[1:].isdigit()):
-        current_total += int(card)
-    elif card == '76':
-        if current_total <= 0:
+    # special_cards
+    if isinstance(card, int):
+        current_total += card
+    elif card == 76:
+        if current_total <= 0:  # 총합이 0 이하일 때만 사용 가능
             current_total = 76
             game_message = f"{'Computer' if player == 'computer' else 'You'} played 76. Total is now 76!"
         else:
             game_message = "76 can only be played at the start or when total is 0 or below."
-            return False
+            return False  # 카드 무효화
     elif card == "reverse":
         global direction
         direction *= -1
+    elif card == "-10":
+        current_total -= 10
+    elif card == "0":
+        pass
+    elif card == "*2":  # 상대방에게 카드 2장 추가
+        target_hand = computer_hand if player == "user" else user_hand
+        for _ in range(2):
+            if deck:
+                target_hand.append(deck.pop())
+        game_message = f"{'Computer' if player == 'computer' else 'You'} played *2. Opponent drew 2 cards!"
 
-    # *2 카드는 상대가 *2 내면 내가 2장을 내고 2장을 드로우함
-    # elif card == "*2":
-    #     target_hand = computer_hand if player == "user" else user_hand
-    #     for _ in range(2):
-    #         if deck:
-    #             target_hand.append(deck.pop())
-    #     game_message = f"{'Computer' if player == 'computer' else 'You'} played *2. Opponent drew 2 cards!"
-
-    # 카드 드로우 처리
-    if deck:
-        if player == "user":
-            user_drawn_card = deck.pop()
-            user_hand.append(user_drawn_card)
-            game_message = f"You drew {user_drawn_card} from the deck."
-        else:
-            computer_drawn_card = deck.pop()
-            computer_hand.append(computer_drawn_card)
-            game_message = f"Computer drew a card from the deck."
-    else:
+    # 카드 더미가 비었는지 확인
+    if not deck:
         game_message = "Deck is empty! No more cards to draw."
+        return True
+
+    # 카드 더미에서 한 장 가져오기
+    if player == "user" and deck:
+        user_drawn_card = deck.pop()
+        user_hand.append(user_drawn_card)
+        game_message = f"You drew {user_drawn_card} from the deck."
+    elif player == "computer" and deck:
+        computer_drawn_card = deck.pop()
+        computer_hand.append(computer_drawn_card)
+        game_message = f"Computer drew a card from the deck."
 
     return True
 
@@ -439,16 +360,11 @@ def main():
     global user_turn, game_message
 
     initialize_game()
-    game_images = load_images()
-    
+
     running = True
     while running:
-        # 배경 이미지 그리기
-        if 'layout' in game_images:
-            screen.blit(game_images['layout'], (0, 0))
-        else:
-            screen.fill(WHITE)
-            
+        screen.fill(WHITE)
+
         # Draw current total
         draw_text(f"Current Total: {current_total}", large_font, BLACK, WIDTH // 2 - 150, 50)
 
@@ -461,7 +377,7 @@ def main():
         draw_life_chips(250, 180, computer_life_chips)
 
         # Draw game message
-        message_color = WHITE if user_turn else BLUE
+        message_color = RED if user_turn else BLUE
         draw_text(game_message, font, message_color, WIDTH // 2 - 150, HEIGHT // 2)
 
         # Draw user hand
