@@ -22,7 +22,7 @@ pygame.display.set_caption("Robo77")
 # Font settings
 font = pygame.font.Font(None, 25)
 large_font = pygame.font.Font(None, 48)
-warning_font = pygame.font.Font(None, 64)
+warning_font = pygame.font.Font(None, 48)
 consensus_font = pygame.font.Font(None, 80)
 
 # Card dimensions
@@ -294,7 +294,10 @@ def apply_card(card, player):
     elif card == "reverse":
         global direction
         direction *= -1
-
+    elif card == "*2":  # *2 카드
+        current_total *= 2
+        game_message = f"{'Computer' if player == 'computer' else 'You'} played *2. Total is now {current_total}!"
+    
     # *2 카드는 상대가 *2 내면 내가 2장을 내고 2장을 드로우함
     # elif card == "*2":
     #     target_hand = computer_hand if player == "user" else user_hand
