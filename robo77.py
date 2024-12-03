@@ -277,7 +277,7 @@ def create_deck():
     random.shuffle(deck)
     return deck
 
-# apply_card 함수도 수정이 필요합니다
+# apply card
 def apply_card(card, player):
     global current_total, deck, game_message, user_drawn_card, computer_drawn_card
 
@@ -321,24 +321,25 @@ def apply_card(card, player):
 
     return True
 
+# PPT에 들어갈 가장 중요한 파트!!
 # Computer play
 def computer_play():
     global user_turn, game_message, computer_played_card
 
-    best_card = None
+    best_card = None # 카드 중 가장 좋은 카드를 그리디 알고리즘을 통해 선택
     for card in computer_hand:
-        if isinstance(card, int):
+        if isinstance(card, int): # 숫자 카드는 그냥 더함
             new_total = current_total + card
-        elif card == "-10":
+        elif card == "-10": # -10 카드는 10을 뺌
             new_total = current_total - 10
-        else:
+        else: # 특수 카드는 효과에 따라 다름
             new_total = current_total
 
-        if new_total <= 77 and new_total % 11 != 0:
+        if new_total <= 77 and new_total % 11 != 0: # 77을 넘지 않고 11의 배수가 아닌 경우
             best_card = card
             break
 
-    if best_card is None:
+    if best_card is None: # 가능한 카드가 없는 경우 첫번째 카드를 선택
         best_card = computer_hand[0]
 
     computer_hand.remove(best_card)
@@ -348,6 +349,7 @@ def computer_play():
 
     if not check_game_over(False):
         pygame.time.set_timer(pygame.USEREVENT + 1, 1000)  # 1초 대기 후 다음 메시지
+
 
 # 승패 여부 출력
 def check_game_over(is_user):
